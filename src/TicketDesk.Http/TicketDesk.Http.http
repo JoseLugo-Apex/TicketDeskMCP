@@ -1,0 +1,30 @@
+@host = http://localhost:3001
+
+### List the tools (no initialize handshake needed on 2026-07-28)
+POST {{host}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+Mcp-Method: tools/list
+
+{ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }
+
+### Call a tool. Note Mcp-Method and Mcp-Name: a load balancer, WAF or APM can
+### route and observe this WITHOUT parsing the body.
+POST {{host}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+Mcp-Method: tools/call
+Mcp-Name: sprint_health
+
+{ "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+  "params": { "name": "sprint_health", "arguments": {} } }
+
+### Search with arguments
+POST {{host}}/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+Mcp-Method: tools/call
+Mcp-Name: search_tickets
+
+{ "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+  "params": { "name": "search_tickets", "arguments": { "status": "open" } } }

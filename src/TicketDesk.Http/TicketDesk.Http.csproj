@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TicketDesk.Http</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Streamable HTTP transport. Stateless by default as of SDK v2. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+  </ItemGroup>
+
+  <!-- The tool, resource and prompt sources are compiled in directly from the stdio project. -->
+  <ItemGroup>
+    <Compile Include="../TicketDesk.McpServer/Data/**/*.cs" LinkBase="Shared/Data" />
+    <Compile Include="../TicketDesk.McpServer/Tools/**/*.cs" LinkBase="Shared/Tools" />
+    <Compile Include="../TicketDesk.McpServer/Resources/**/*.cs" LinkBase="Shared/Resources" />
+    <Compile Include="../TicketDesk.McpServer/Prompts/**/*.cs" LinkBase="Shared/Prompts" />
+  </ItemGroup>
+
+</Project>

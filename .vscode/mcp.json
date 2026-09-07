@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "ticket-desk": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "${workspaceFolder}/src/TicketDesk.McpServer/bin/Debug/net8.0/TicketDesk.McpServer.dll"
+      ]
+    }
+  }
+}
