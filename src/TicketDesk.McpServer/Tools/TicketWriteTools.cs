@@ -5,12 +5,9 @@ using TicketDesk.McpServer.Data;
 
 namespace TicketDesk.McpServer.Tools;
 
-// The root namespace TicketDesk.McpServer shadows the SDK type of the same name. The alias
-// must sit inside the namespace to win name lookup against it.
 using McpServer = ModelContextProtocol.Server.McpServer;
 
-// A tool that stops mid-call to ask the human, using Multi Round-Trip Requests (MRTR,
-// SEP-2322) from the 2026-07-28 spec revision.
+// A tool that stops mid-call to ask the human, using Multi Round-Trip Requests (MRTR)
 //
 // The older way to ask was to hold the session open and push a request down to the client,
 // which makes the server stateful. Here the tool THROWS InputRequiredException carrying the
@@ -99,8 +96,6 @@ public static class TicketWriteTools
                         },
                     })
                 },
-                // Our continuation, echoed back untouched on the retry. Trivial here for
-                // readability; in a real server sign it and validate it on the way back in.
                 requestState: ticketId.ToString());
         }
 
