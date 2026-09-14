@@ -16,8 +16,9 @@ using McpServer = ModelContextProtocol.Server.McpServer;
 // echoed back. Nothing is held open in between, so the retry may even land on a different
 // instance — which is what keeps a server like this horizontally scalable.
 //
-// The method below is four branches, one per case: the reason was supplied up front, the
-// reason just came back from the user, we still need to ask, or the client cannot be asked.
+// The method below is three branches, one per case: the reason just came back from the user,
+// we still need to ask, or the client cannot be asked. A closeReason supplied by the model is
+// never treated as confirmation — it only pre-fills the question put to the human.
 
 [McpServerToolType]
 public static class TicketWriteTools
@@ -32,18 +33,22 @@ public static class TicketWriteTools
         McpServer server,
         RequestContext<CallToolRequestParams> context,
         [Description("The id of the ticket to close, e.g. 4131.")] long ticketId,
-        [Description("Why the ticket is being closed.")] string? closeReason = null)
+        [Description("Suggested reason for closing. The user confirms or edits it before the ticket is closed.")] string? closeReason = null)
     {
         var ticket = TicketStore.Find(ticketId);
         if (ticket is null) return $"No ticket found with id {ticketId}.";
         if (ticket.Status == "closed") return $"Ticket {ticketId} is already closed ({ticket.CloseReason}).";
 
         const string defaultCloseReason = "completed";
-        var confirmedReason = closeReason;
+
+        string Close(string reason) =>
+            TicketStore.Close(ticketId, reason)
+                ? $"Closed ticket {ticketId} ({ticket.Title}) — reason: {reason}"
+                : $"Could not close ticket {ticketId}.";
 
         // MRTR round trip: the client is re-issuing the same call with the user's answer attached.
-        if (string.IsNullOrWhiteSpace(confirmedReason) &&
-            context.Params?.InputResponses?.TryGetValue("closeReason", out var response) is true)
+        // This is the only path where the change is applied with a human-confirmed reason.
+        if (context.Params?.InputResponses?.TryGetValue("closeReason", out var response) is true)
         {
             var elicited = response.Deserialize(InputResponse.ElicitResultJsonTypeInfo);
 
@@ -51,25 +56,16 @@ public static class TicketWriteTools
             if (elicited?.IsAccepted is not true)
                 return $"Cancelled. Ticket {ticketId} is still {ticket.Status}.";
 
-            confirmedReason = elicited.Content?.TryGetValue("closeReason", out var value) is true
+            var confirmedReason = elicited.Content?.TryGetValue("closeReason", out var value) is true
                 ? value.GetString()
                 : null;
 
-            confirmedReason = string.IsNullOrWhiteSpace(confirmedReason)
-                ? defaultCloseReason
-                : confirmedReason;
+            return Close(string.IsNullOrWhiteSpace(confirmedReason) ? defaultCloseReason : confirmedReason);
         }
 
-        // A reason exists — supplied up front, or just collected. Do the work.
-        if (!string.IsNullOrWhiteSpace(confirmedReason))
-        {
-            return TicketStore.Close(ticketId, confirmedReason)
-                ? $"Closed ticket {ticketId} ({ticket.Title}) — reason: {confirmedReason}"
-                : $"Could not close ticket {ticketId}.";
-        }
-
-        // No reason yet: stop the call and ask the human. IsMrtrSupported is what the client
-        // advertised on connect, so this branch is a capability check, not a version check.
+        // First pass: stop the call and ask the human, even if the model already proposed a
+        // reason. IsMrtrSupported is what the client advertised on connect, so this branch is
+        // a capability check, not a version check.
         if (server.IsMrtrSupported)
         {
             throw new InputRequiredException(
@@ -90,7 +86,7 @@ public static class TicketWriteTools
                                 {
                                     Title = "Close reason",
                                     Description = "Why this ticket is being closed",
-                                    Default = defaultCloseReason,
+                                    Default = string.IsNullOrWhiteSpace(closeReason) ? defaultCloseReason : closeReason,
                                 },
                             },
                         },
@@ -100,7 +96,11 @@ public static class TicketWriteTools
         }
 
         // Client cannot be asked: degrade to something the model can still act on, rather
-        // than failing. You do not get to choose which clients call your server.
+        // than failing. You do not get to choose which clients call your server. The client's
+        // own tool-approval prompt is the only confirmation left on this path.
+        if (!string.IsNullOrWhiteSpace(closeReason))
+            return Close(closeReason);
+
         return "Closing a ticket requires a reason. Call close_ticket again with a closeReason argument.";
     }
 }
